@@ -216,7 +216,7 @@ const Search: React.FC = () => {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            className="w-full p-3 rounded-lg bg-black/10 text-white placeholder-amber-300 focus:outline-none"
+            className="w-full p-3 rounded-lg bg-black/10 text-white placeholder-amber-300 focus:outline-none kor text-xl"
           />
           <button
             onClick={handleSearch}
@@ -230,7 +230,9 @@ const Search: React.FC = () => {
       {/* 검색 결과 */}
       <div className="flex-1 overflow-auto p-6 scrollbar-hidden">
         {artists.length === 0 && albums.length === 0 && songs.length === 0 ? (
-          <p className="text-center text-amber-300">검색 결과가 없습니다.</p>
+          <p className="text-center text-amber-300 kor">
+            검색 결과가 없습니다.
+          </p>
         ) : (
           <>
             {/* 가수 */}

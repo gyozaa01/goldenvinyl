@@ -7,6 +7,7 @@ import RecommendedTracks from "@/components/RecommendedTracks";
 import Player from "@/components/Player";
 import Navigation from "@/components/Navigation";
 import Search from "@/components/Search";
+import Library from "@/components/Library";
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState("home");
@@ -25,7 +26,8 @@ export default function HomePage() {
             <RecommendedTracks />
           </>
         )}
-        {activeTab === "search" && <Search />}{" "}
+        {activeTab === "search" && <Search />}
+        {activeTab === "library" && <Library />}
       </main>
       <Player />
       <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
