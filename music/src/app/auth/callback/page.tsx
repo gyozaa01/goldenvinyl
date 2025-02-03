@@ -50,17 +50,29 @@ const Callback = () => {
           const spotifyUser = await fetchSpotifyUser(data.access_token);
           console.log("Spotify User:", spotifyUser);
 
-          // Supabase에 사용자 정보 저장 (uuid 사용)
-          const { error } = await supabase.from("users").upsert({
-            email: spotifyUser.email || "",
-            display_name: spotifyUser.display_name || "",
-            avatar_url: spotifyUser.images?.[0]?.url || "",
-          });
+          // Supabase에서 이메일로 사용자 존재 여부 확인 후 upsert
+          const { data: userData, error } = await supabase
+            .from("users")
+            .upsert(
+              {
+                email: spotifyUser.email || "",
+                display_name: spotifyUser.display_name || "",
+                avatar_url: spotifyUser.images?.[0]?.url || "",
+              },
+              { onConflict: "email" }
+            )
+            .select(); // 데이터를 반환하도록 설정
 
           if (error) {
             console.error("Supabase 저장 오류:", error.message);
           } else {
-            console.log("사용자 정보 저장 성공!");
+            console.log("사용자 정보 저장 성공!", userData);
+          }
+
+          if (error) {
+            console.error("Supabase 저장 오류:", error.message);
+          } else {
+            console.log("사용자 정보 저장 성공!", userData);
           }
 
           // 홈 화면으로 이동
