@@ -25,9 +25,7 @@ const Player = () => {
         />
       </button>
       <div className="flex items-center justify-between px-6 pt-8">
-        <h4 className="text-amber-50 nanum-pen-script-regular font-medium">
-          현재 재생 중인 음악
-        </h4>
+        <h4 className="text-amber-50 kor font-medium">현재 재생 중인 음악</h4>
         <Heart className="text-amber-500/80" />
       </div>
 

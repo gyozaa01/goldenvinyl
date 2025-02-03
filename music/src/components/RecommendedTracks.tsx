@@ -3,9 +3,7 @@ import Image from "next/image";
 const RecommendedTracks = () => {
   return (
     <div>
-      <h2 className="text-3xl nanum-pen-script-regular mt-2 mb-4 text-amber-200/90">
-        추천 음악
-      </h2>
+      <h2 className="text-3xl kor mt-2 mb-4 text-amber-200/90">추천 음악</h2>
       <div className="flex overflow-x-auto space-x-4 pb-4 -mx-2 px-2">
         {[1, 2, 3, 4, 5].map((item) => (
           <div key={item} className="flex-shrink-0 w-44">

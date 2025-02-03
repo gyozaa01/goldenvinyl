@@ -7,6 +7,8 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --font-eng: "Dancing Script", cursive;
+  --font-kor: "Nanum Pen Script", serif;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,15 +24,12 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-.dancing-script {
-  font-family: "Dancing Script", cursive;
-  font-optical-sizing: auto;
+.eng {
+  font-family: var(--font-eng);
   font-weight: 700;
-  font-style: normal;
 }
 
-.nanum-pen-script-regular {
-  font-family: "Nanum Pen Script", serif;
+.kor {
+  font-family: var(--font-kor);
   font-weight: 800;
-  font-style: normal;
 }

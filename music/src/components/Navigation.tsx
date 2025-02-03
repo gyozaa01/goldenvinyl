@@ -8,7 +8,7 @@ interface NavigationProps {
 const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab }) => {
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-black/80">
-      <div className="flex justify-around dancing-script">
+      <div className="flex justify-around eng">
         {[
           { icon: Home, label: "Home" },
           { icon: Search, label: "Search" },

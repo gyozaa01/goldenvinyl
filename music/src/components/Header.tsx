@@ -18,7 +18,7 @@ const Header = () => {
     <header className="relative flex items-center justify-between px-6 py-4">
       <div className="flex items-center gap-2">
         <Image src="/images/logo.svg" alt="Logo" width={40} height={40} />
-        <h1 className="text-2xl font-bold dancing-script">Golden Vinyl</h1>
+        <h1 className="text-2xl font-bold eng">Golden Vinyl</h1>
       </div>
 
       {isLoggedIn ? (
@@ -34,7 +34,7 @@ const Header = () => {
             <div className="absolute right-0 mt-2 w-32 bg-black text-white rounded-lg shadow-lg">
               <button
                 onClick={handleLogout}
-                className="text-xl flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-800 nanum-pen-script-regular"
+                className="text-xl flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-800 kor"
               >
                 <LogOut size={18} /> 로그아웃
               </button>
@@ -44,7 +44,7 @@ const Header = () => {
       ) : (
         <button
           onClick={handleLogin}
-          className="text-xl px-4 py-2 nanum-pen-script-regular rounded-lg bg-amber-200 text-black font-bold"
+          className="text-xl px-4 py-2 kor rounded-lg bg-amber-200 text-black font-bold"
         >
           로그인
         </button>

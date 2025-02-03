@@ -4,9 +4,7 @@ import Image from "next/image";
 const RecentlyPlayed = () => {
   return (
     <div>
-      <h2 className="text-3xl nanum-pen-script-regular mb-4 text-amber-200/90">
-        최근 재생된 음악
-      </h2>
+      <h2 className="text-3xl kor mb-4 text-amber-200/90">최근 재생된 음악</h2>
       <div className="grid grid-cols-2 gap-4">
         {[1, 2, 3, 4].map((item) => (
           <div key={item} className="group relative bg-black/40 rounded-lg p-3">
