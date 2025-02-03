@@ -11,7 +11,9 @@ const Player = () => {
   return (
     <div
       className={`fixed left-0 right-0 transition-all duration-500 ease-out ${
-        isExpanded ? "top-0 bottom-0 bg-black/95" : "bottom-0 h-48 bg-black/80"
+        isExpanded
+          ? "top-0 bottom-0 bg-black/95 z-50"
+          : "bottom-0 h-48 bg-black/80"
       }`}
     >
       <button
