@@ -16,7 +16,9 @@ const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab }) => {
         ].map((item) => (
           <button
             key={item.label}
-            onClick={() => setActiveTab(item.label.toLowerCase())}
+            onClick={() => {
+              setActiveTab(item.label.toLowerCase());
+            }}
             className={`p-4 flex flex-col items-center ${
               activeTab === item.label.toLowerCase()
                 ? "text-amber-500"
