@@ -18,6 +18,7 @@ const RecommendedTracks: React.FC = () => {
                 width={200}
                 height={200}
                 className="w-full aspect-square object-cover rounded-lg"
+                priority={true}
               />
               <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors rounded-lg" />
               <button className="absolute bottom-2 right-2 p-3 bg-amber-600/90 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
