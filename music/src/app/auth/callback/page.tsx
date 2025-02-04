@@ -21,7 +21,7 @@ const Callback = () => {
       if (!code) return;
 
       try {
-        // Spotify에서 Access Token 가져오기
+        // Spotify에서 Access Token & Refresh Token 요청
         const response = await fetch(TOKEN_URL, {
           method: "POST",
           headers: {
@@ -42,15 +42,17 @@ const Callback = () => {
         }
 
         console.log("Access Token:", data.access_token);
+        console.log("Refresh Token:", data.refresh_token);
 
         if (data.access_token) {
           localStorage.setItem("spotify_access_token", data.access_token);
+          localStorage.setItem("spotify_refresh_token", data.refresh_token);
 
           // Spotify 사용자 정보 가져오기
           const spotifyUser = await fetchSpotifyUser(data.access_token);
           console.log("Spotify User:", spotifyUser);
 
-          // Supabase에서 이메일로 사용자 존재 여부 확인 후 upsert
+          // Supabase에 사용자 정보 저장
           const { data: userData, error } = await supabase
             .from("users")
             .upsert(
@@ -61,13 +63,7 @@ const Callback = () => {
               },
               { onConflict: "email" }
             )
-            .select(); // 데이터를 반환하도록 설정
-
-          if (error) {
-            console.error("Supabase 저장 오류:", error.message);
-          } else {
-            console.log("사용자 정보 저장 성공!", userData);
-          }
+            .select();
 
           if (error) {
             console.error("Supabase 저장 오류:", error.message);

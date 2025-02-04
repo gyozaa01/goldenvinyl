@@ -3,24 +3,46 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { LogOut, User } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
 
-const CLIENT_ID = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID;
-const REDIRECT_URI = process.env.NEXT_PUBLIC_SPOTIFY_REDIRECT_URI;
+const CLIENT_ID = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID!;
+const REDIRECT_URI = process.env.NEXT_PUBLIC_SPOTIFY_REDIRECT_URI!;
 const AUTH_URL = "https://accounts.spotify.com/authorize";
 const SCOPES = ["user-read-email", "user-read-private"].join("%20");
 
 const Header = () => {
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [user, setUser] = useState<{
+    display_name: string;
+    avatar_url: string;
+  } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("spotify_access_token");
     setAccessToken(token);
+
+    // Supabase에서 사용자 정보 가져오기
+    const fetchUser = async () => {
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .limit(1)
+        .single();
+
+      if (error) {
+        console.error("사용자 정보 가져오기 오류:", error.message);
+      } else {
+        setUser(data);
+      }
+    };
+
+    if (token) fetchUser();
   }, []);
 
   const handleLogin = () => {
     const authUrl = `${AUTH_URL}?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${REDIRECT_URI}&scope=${SCOPES}`;
-    window.location.href = authUrl;
+    window.location.href = authUrl; // Spotify 로그인 페이지로 이동
   };
 
   const handleLogout = (e: React.MouseEvent) => {
@@ -29,7 +51,12 @@ const Header = () => {
 
     setMenuOpen(false);
     localStorage.removeItem("spotify_access_token");
+    localStorage.removeItem("spotify_refresh_token"); // 리프레시 토큰도 삭제
+
     setAccessToken(null);
+    setUser(null);
+
+    window.location.reload(); // 로그아웃 후 상태 초기화
   };
 
   return (
@@ -45,14 +72,26 @@ const Header = () => {
             onClick={() => setMenuOpen(!menuOpen)}
             className="p-2 rounded-full bg-white/10"
           >
-            <User size={24} className="text-amber-200/80" />
+            {user?.avatar_url ? (
+              <Image
+                src={user.avatar_url}
+                alt="User Avatar"
+                width={32}
+                height={32}
+                className="rounded-full"
+              />
+            ) : (
+              <User size={24} className="text-amber-200/80" />
+            )}
           </button>
 
           {menuOpen && (
-            <div
-              className="absolute right-0 mt-2 w-32 bg-black text-white rounded-lg shadow-lg z-50"
-              onClick={(e) => e.stopPropagation()}
-            >
+            <div className="absolute right-0 mt-2 w-40 bg-black text-white rounded-lg shadow-lg z-50">
+              <div className="px-4 py-2 text-center border-b border-gray-700">
+                <p className="kor text-xl text-sm">
+                  {user?.display_name ? `${user.display_name}님` : "사용자"}
+                </p>
+              </div>
               <button
                 onClick={handleLogout}
                 className="text-xl flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-800 kor"
@@ -64,7 +103,7 @@ const Header = () => {
         </div>
       ) : (
         <button
-          onClick={handleLogin}
+          onClick={handleLogin} // Spotify 로그인 페이지로 이동
           className="text-xl px-4 py-2 kor rounded-lg bg-amber-200 text-black font-bold"
         >
           로그인
