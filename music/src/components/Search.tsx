@@ -1,208 +1,154 @@
 "use client";
 
 import { useState } from "react";
-import { Search as SearchIcon, ChevronDown, ChevronUp } from "lucide-react";
+import { Search as SearchIcon, Play, Pause } from "lucide-react";
 import Image from "next/image";
 
-// 검색 결과 타입 정의
-type ResultItem = {
-  id: number;
-  type: "song" | "artist" | "album";
-  name: string;
-  artist?: string;
-  album?: string;
-  image: string;
+// 시간 변환 함수(밀리초 → mm:ss)
+const formatDuration = (ms: number): string => {
+  const minutes = Math.floor(ms / 60000);
+  const seconds = ((ms % 60000) / 1000).toFixed(0);
+  return `${minutes}:${parseInt(seconds) < 10 ? "0" : ""}${seconds}`;
 };
 
-// 더미 데이터
-const allResults: ResultItem[] = [
-  {
-    id: 1,
-    type: "artist",
-    name: "투어스",
-    image: "https://picsum.photos/200/200?random=1",
-  },
-  {
-    id: 2,
-    type: "artist",
-    name: "tws",
-    image: "https://picsum.photos/200/200?random=2",
-  },
-  {
-    id: 3,
-    type: "album",
-    name: "투어스 1집",
-    artist: "투어스",
-    image: "https://picsum.photos/200/200?random=3",
-  },
-  {
-    id: 4,
-    type: "album",
-    name: "투어스 2집",
-    artist: "투어스",
-    image: "https://picsum.photos/200/200?random=4",
-  },
-  {
-    id: 5,
-    type: "album",
-    name: "투어스 3집",
-    artist: "투어스",
-    image: "https://picsum.photos/200/200?random=5",
-  },
-  {
-    id: 6,
-    type: "album",
-    name: "tws album",
-    artist: "tws",
-    image: "https://picsum.photos/200/200?random=6",
-  },
-  {
-    id: 7,
-    type: "song",
-    name: "Plot Twist",
-    artist: "투어스",
-    album: "투어스 1집",
-    image: "https://picsum.photos/200/200?random=7",
-  },
-  {
-    id: 8,
-    type: "song",
-    name: "unplugged boy",
-    artist: "투어스",
-    album: "투어스 1집",
-    image: "https://picsum.photos/200/200?random=8",
-  },
-  {
-    id: 9,
-    type: "song",
-    name: "first hooky",
-    artist: "투어스",
-    album: "투어스 1집",
-    image: "https://picsum.photos/200/200?random=9",
-  },
-  {
-    id: 10,
-    type: "song",
-    name: "BFF",
-    artist: "투어스",
-    album: "투어스 1집",
-    image: "https://picsum.photos/200/200?random=10",
-  },
-  {
-    id: 11,
-    type: "song",
-    name: "Oh Mymy : 7s",
-    artist: "투어스",
-    album: "투어스 1집",
-    image: "https://picsum.photos/200/200?random=11",
-  },
-  {
-    id: 12,
-    type: "song",
-    name: "Hey! Hey!",
-    artist: "투어스",
-    album: "투어스 2집",
-    image: "https://picsum.photos/200/200?random=12",
-  },
-  {
-    id: 13,
-    type: "song",
-    name: "Double Take",
-    artist: "투어스",
-    album: "투어스 2집",
-    image: "https://picsum.photos/200/200?random=13",
-  },
-  {
-    id: 14,
-    type: "song",
-    name: "Fire Confetti",
-    artist: "투어스",
-    album: "투어스 2집",
-    image: "https://picsum.photos/200/200?random=14",
-  },
-  {
-    id: 15,
-    type: "song",
-    name: "Last Festival",
-    artist: "투어스",
-    album: "투어스 3집",
-    image: "https://picsum.photos/200/200?random=15",
-  },
-  {
-    id: 16,
-    type: "song",
-    name: "Highlight",
-    artist: "투어스",
-    album: "투어스 3집",
-    image: "https://picsum.photos/200/200?random=16",
-  },
-  {
-    id: 17,
-    type: "song",
-    name: "Comma,",
-    artist: "투어스",
-    album: "투어스 3집",
-    image: "https://picsum.photos/200/200?random=17",
-  },
-  {
-    id: 18,
-    type: "song",
-    name: "투어스 노래",
-    artist: "tws",
-    album: "tws album",
-    image: "https://picsum.photos/200/200?random=18",
-  },
-];
+// Spotify API 응답 타입 정의
+interface SpotifyTrack {
+  id: string;
+  name: string;
+  artists: { name: string }[];
+  album: { name: string; images: { url: string }[] };
+  uri: string;
+  duration_ms: number;
+  type: "track";
+  images: { url: string }[];
+}
+
+interface SpotifyAlbum {
+  id: string;
+  name: string;
+  images: { url: string }[];
+  artists: { name: string }[];
+  release_date: string;
+  type: "album";
+}
+
+interface SpotifyArtist {
+  id: string;
+  name: string;
+  images?: { url: string }[];
+  type: "artist";
+}
+
+type SearchResults = {
+  topResult: SpotifyArtist | SpotifyAlbum | SpotifyTrack | null;
+  tracks: SpotifyTrack[];
+  albums: SpotifyAlbum[];
+  artists: SpotifyArtist[];
+};
 
 const Search: React.FC = () => {
   const [query, setQuery] = useState<string>("");
-  const [artists, setArtists] = useState<ResultItem[]>([]);
-  const [albums, setAlbums] = useState<ResultItem[]>([]);
-  const [songs, setSongs] = useState<ResultItem[]>([]);
-  const [expandedArtist, setExpandedArtist] = useState<string | null>(null);
-  const [expandedAlbum, setExpandedAlbum] = useState<string | null>(null);
+  const [results, setResults] = useState<SearchResults>({
+    topResult: null,
+    tracks: [],
+    albums: [],
+    artists: [],
+  });
 
-  // 검색 기능
-  const handleSearch = () => {
-    const trimmedQuery = query.trim().toLowerCase();
-    if (!trimmedQuery) {
-      setArtists([]);
-      setAlbums([]);
-      setSongs([]);
+  const [playingTrack, setPlayingTrack] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  // Spotify API 검색
+  const handleSearch = async () => {
+    const accessToken = localStorage.getItem("spotify_access_token");
+    if (!accessToken) {
+      alert("Spotify 로그인 필요");
       return;
     }
 
-    // 가수 검색 (name 필드에서 검색)
-    const filteredArtists = allResults.filter(
-      (item) =>
-        item.type === "artist" && item.name.toLowerCase().includes(trimmedQuery)
-    );
+    if (!query.trim()) return;
 
-    // 앨범 검색 (name 또는 artist 필드에서 검색)
-    const filteredAlbums = allResults.filter(
-      (item) =>
-        item.type === "album" &&
-        (item.name.toLowerCase().includes(trimmedQuery) ||
-          (item.artist && item.artist.toLowerCase().includes(trimmedQuery)))
-    );
+    try {
+      const response = await fetch(
+        `https://api.spotify.com/v1/search?q=${encodeURIComponent(
+          query
+        )}&type=track,album,artist&limit=5`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+      );
 
-    // 노래 검색 (name, artist, album 필드에서 검색)
-    const filteredSongs = allResults.filter(
-      (item) =>
-        item.type === "song" &&
-        (item.name.toLowerCase().includes(trimmedQuery) ||
-          (item.artist && item.artist.toLowerCase().includes(trimmedQuery)) ||
-          (item.album && item.album.toLowerCase().includes(trimmedQuery)))
-    );
+      const data = await response.json();
 
-    console.log("검색 결과");
-    console.log("가수:", filteredArtists);
-    console.log("앨범:", filteredAlbums);
-    console.log("노래:", filteredSongs);
+      const topArtist = data.artists?.items?.[0] || null;
+      const topAlbum = data.albums?.items?.[0] || null;
+      const topTrack = data.tracks?.items?.[0] || null;
 
-    setArtists(filteredArtists);
-    setAlbums(filteredAlbums);
-    setSongs(filteredSongs);
+      const topResult = topArtist || topAlbum || topTrack;
+
+      setResults({
+        topResult,
+        tracks: data.tracks?.items || [],
+        albums: data.albums?.items || [],
+        artists: data.artists?.items || [],
+      });
+    } catch (error) {
+      console.error("Spotify 검색 오류:", error);
+    }
+  };
+
+  // 재생/일시정지
+  const togglePlay = async (uri: string) => {
+    const accessToken = localStorage.getItem("spotify_access_token");
+    if (!accessToken) {
+      alert("Spotify 로그인 필요");
+      return;
+    }
+
+    try {
+      if (playingTrack === uri && isPlaying) {
+        await fetch("https://api.spotify.com/v1/me/player/pause", {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        setIsPlaying(false);
+        return;
+      }
+
+      const deviceResponse = await fetch(
+        "https://api.spotify.com/v1/me/player/devices",
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+      );
+      const deviceData = await deviceResponse.json();
+
+      if (!deviceData.devices.length) {
+        alert(
+          "Spotify에서 재생할 수 있는 기기가 없습니다. Spotify 앱을 열고 한 번 재생한 후 다시 시도해주세요."
+        );
+        return;
+      }
+
+      const deviceId = deviceData.devices[0].id;
+
+      await fetch(
+        `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ uris: [uri] }),
+        }
+      );
+
+      setPlayingTrack(uri);
+      setIsPlaying(true);
+    } catch (error) {
+      console.error("Spotify 재생 오류:", error);
+    }
   };
 
   return (
@@ -222,124 +168,114 @@ const Search: React.FC = () => {
             onClick={handleSearch}
             className="absolute right-3 text-amber-400"
           >
-            <SearchIcon size={24} />
-          </button>
-        </div>
+            {" "}
+            <SearchIcon size={24} />{" "}
+          </button>{" "}
+        </div>{" "}
       </div>
 
       {/* 검색 결과 */}
-      <div className="flex-1 overflow-auto p-6 scrollbar-hidden">
-        {artists.length === 0 && albums.length === 0 && songs.length === 0 ? (
-          <p className="text-center text-amber-300 kor">
-            검색 결과가 없습니다.
-          </p>
-        ) : (
-          <>
-            {/* 가수 */}
-            {artists.length > 0 && (
-              <div className="mb-6">
-                <h2 className="text-xl font-bold text-amber-200 mb-2">
-                  아티스트
-                </h2>
-                {artists.map((artist) => (
-                  <div key={artist.id}>
-                    <button
-                      className="flex items-center bg-black/20 p-3 rounded-lg w-full text-left"
-                      onClick={() =>
-                        setExpandedArtist(
-                          expandedArtist === artist.name ? null : artist.name
-                        )
-                      }
-                    >
-                      <Image
-                        src={artist.image}
-                        alt={artist.name}
-                        width={50}
-                        height={50}
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
-                      <div className="ml-4 flex-1">
-                        <h3 className="text-lg font-medium">{artist.name}</h3>
-                        <p className="text-xs text-amber-500">가수</p>
-                      </div>
-                      {expandedArtist === artist.name ? (
-                        <ChevronUp size={20} />
-                      ) : (
-                        <ChevronDown size={20} />
-                      )}
-                    </button>
-                  </div>
-                ))}
+      <div className="flex-1 overflow-auto p-6 scrollbar-hidden space-y-6">
+        {/* 상위 결과 */}
+        {results.topResult && (
+          <div className="bg-black/20 p-4 rounded-lg">
+            <h2 className="text-2xl font-semibold mb-3 kor">상위 결과</h2>
+            <div className="flex items-center">
+              <Image
+                src={
+                  results.topResult.images?.[0]?.url || "/images/default.png"
+                }
+                alt={results.topResult.name}
+                width={80}
+                height={80}
+                className={`object-cover aspect-square ${
+                  results.topResult.type === "artist"
+                    ? "rounded-full w-20 h-20"
+                    : "rounded-lg"
+                }`}
+              />
+
+              <div className="ml-4">
+                <h3 className="text-lg font-bold truncate w-40">
+                  {results.topResult.name}
+                </h3>
+                <p className="text-amber-300">
+                  {results.topResult.type === "artist"
+                    ? "아티스트"
+                    : results.topResult.type === "album"
+                    ? "앨범"
+                    : "곡"}
+                </p>
               </div>
-            )}
+            </div>
+          </div>
+        )}
 
-            {/* 앨범 */}
-            {albums.length > 0 && (
-              <div className="mb-6">
-                <h2 className="text-xl font-bold text-amber-200 mb-2">앨범</h2>
-                {albums.map((album) => (
-                  <div key={album.id}>
-                    <button
-                      className="flex items-center bg-black/20 p-3 rounded-lg w-full text-left"
-                      onClick={() =>
-                        setExpandedAlbum(
-                          expandedAlbum === album.name ? null : album.name
-                        )
-                      }
-                    >
-                      <Image
-                        src={album.image}
-                        alt={album.name}
-                        width={50}
-                        height={50}
-                        className="w-12 h-12 rounded-lg object-cover"
-                      />
-                      <div className="ml-4 flex-1">
-                        <h3 className="text-lg font-medium">{album.name}</h3>
-                        <p className="text-sm text-amber-300">{album.artist}</p>
-                      </div>
-                      {expandedAlbum === album.name ? (
-                        <ChevronUp size={20} />
-                      ) : (
-                        <ChevronDown size={20} />
-                      )}
-                    </button>
+        {/* 곡 리스트 */}
+        {results.tracks.length > 0 && (
+          <div>
+            <h2 className="text-2xl font-semibold mb-3 kor">곡</h2>
+            <div className="space-y-4">
+              {results.tracks.map((track) => (
+                <div
+                  key={track.id}
+                  className="flex items-center bg-black/20 p-3 rounded-lg"
+                >
+                  <Image
+                    src={track.album.images[0]?.url}
+                    alt={track.name}
+                    width={50}
+                    height={50}
+                    className="w-12 h-12 rounded-lg object-cover"
+                  />
+                  <div className="ml-4 flex-1">
+                    <h3 className="text-lg font-medium truncate w-full max-w-[150px] sm:max-w-[180px] md:max-w-[220px] lg:max-w-[280px] xl:max-w-[320px] overflow-hidden whitespace-nowrap">
+                      {track.name}
+                    </h3>
 
-                    {/* 선택된 앨범의 노래 표시 */}
-                    {expandedAlbum === album.name && (
-                      <div className="ml-6 mt-2 space-y-3">
-                        {songs
-                          .filter((song) => song.album === album.name)
-                          .map((song) => (
-                            <div
-                              key={song.id}
-                              className="flex items-center bg-black/30 p-3 rounded-lg"
-                            >
-                              <Image
-                                src={song.image}
-                                alt={song.name}
-                                width={50}
-                                height={50}
-                                className="w-12 h-12 rounded-lg object-cover"
-                              />
-                              <div className="ml-4">
-                                <h3 className="text-lg font-medium">
-                                  {song.name}
-                                </h3>
-                                <p className="text-sm text-amber-300">
-                                  {song.artist}
-                                </p>
-                                <p className="text-xs text-amber-500">곡</p>
-                              </div>
-                            </div>
-                          ))}
-                      </div>
+                    <p className="text-sm text-amber-300">
+                      {track.artists[0].name} -{" "}
+                      {formatDuration(track.duration_ms)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => togglePlay(track.uri)}
+                    className="text-amber-400"
+                  >
+                    {playingTrack === track.uri && isPlaying ? (
+                      <Pause size={24} />
+                    ) : (
+                      <Play size={24} />
                     )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 앨범 리스트(슬라이드 가능) */}
+        {results.albums.length > 0 && (
+          <div>
+            <h2 className="text-2xl font-semibold mb-3 kor">앨범</h2>
+            <div className="flex overflow-x-auto space-x-4 scrollbar-hidden">
+              {results.albums.map((album) => (
+                <div key={album.id} className="flex-none w-40">
+                  <Image
+                    src={album.images[0]?.url}
+                    alt={album.name}
+                    width={160}
+                    height={160}
+                    className="w-40 h-40 rounded-lg object-cover"
+                  />
+                  <p className="text-lg truncate w-40">{album.name}</p>
+                  <p className="text-sm text-amber-300">
+                    {album.artists[0].name}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </div>
