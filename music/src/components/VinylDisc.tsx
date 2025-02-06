@@ -1,12 +1,14 @@
 "use client";
 
 import { useRef } from "react";
+import Image from "next/image";
 
 interface VinylDiscProps {
   isPlaying: boolean;
+  imageUrl?: string;
 }
 
-const VinylDisc: React.FC<VinylDiscProps> = ({ isPlaying }) => {
+const VinylDisc: React.FC<VinylDiscProps> = ({ isPlaying, imageUrl }) => {
   const vinylRef = useRef<HTMLDivElement>(null);
 
   return (
@@ -21,8 +23,18 @@ const VinylDisc: React.FC<VinylDiscProps> = ({ isPlaying }) => {
         >
           {/* 디스크 안쪽 원 */}
           <div className="absolute inset-5 sm:inset-6 md:inset-8 rounded-full bg-gradient-to-br from-stone-800 to-stone-700" />
-          <div className="absolute inset-[30%] rounded-full bg-amber-500/20 flex items-center justify-center">
-            <div className="w-4 h-4 rounded-full bg-stone-900" />
+          <div className="absolute inset-1/5 relative w-full h-full rounded-full bg-amber-500/20 flex items-center justify-center">
+            {imageUrl ? (
+              <Image
+                src={imageUrl}
+                alt="Album Cover"
+                fill
+                sizes="(max-width: 768px) 100vw, 50vw"
+                className="object-cover rounded-full"
+              />
+            ) : (
+              <div className="w-4 h-4 rounded-full bg-stone-900" />
+            )}
           </div>
 
           {/* LP 디스크 링 효과 */}
@@ -41,9 +53,9 @@ const VinylDisc: React.FC<VinylDiscProps> = ({ isPlaying }) => {
         <div
           className="absolute w-28 sm:w-32 md:w-36 lg:w-40 xl:w-44 h-2 flex items-center"
           style={{
-            top: "-10%",
+            top: "-13%",
             right: "5%",
-            transform: isPlaying ? "rotate(10deg)" : "rotate(-25deg)",
+            transform: isPlaying ? "rotate(-25deg)" : "rotate(10deg)",
             transition: "transform 0.5s ease-in-out",
             transformOrigin: "right center",
           }}

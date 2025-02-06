@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Search as SearchIcon, Play, Pause } from "lucide-react";
 import Image from "next/image";
+import { usePlayer, SpotifyTrack } from "@/contexts/PlayerContext";
 
 // 시간 변환 함수(밀리초 → mm:ss)
 const formatDuration = (ms: number): string => {
@@ -10,19 +11,6 @@ const formatDuration = (ms: number): string => {
   const seconds = ((ms % 60000) / 1000).toFixed(0);
   return `${minutes}:${parseInt(seconds) < 10 ? "0" : ""}${seconds}`;
 };
-
-// Spotify API 응답 타입 정의
-interface SpotifyTrack {
-  id: string;
-  name: string;
-  artists: { name: string }[];
-  album: { name: string; images: { url: string }[] };
-  uri: string;
-  duration_ms: number;
-  type: "track";
-  images: { url: string }[];
-}
-
 interface SpotifyAlbum {
   id: string;
   name: string;
@@ -46,7 +34,7 @@ type SearchResults = {
   artists: SpotifyArtist[];
 };
 
-const Search: React.FC = () => {
+const Search = () => {
   const [query, setQuery] = useState<string>("");
   const [results, setResults] = useState<SearchResults>({
     topResult: null,
@@ -55,8 +43,14 @@ const Search: React.FC = () => {
     artists: [],
   });
 
-  const [playingTrack, setPlayingTrack] = useState<string | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const {
+    currentTrack,
+    setCurrentTrack,
+    isPlaying,
+    setIsPlaying,
+    togglePlayPause,
+  } = usePlayer();
+  usePlayer();
 
   // Spotify API 검색
   const handleSearch = async () => {
@@ -72,7 +66,7 @@ const Search: React.FC = () => {
       const response = await fetch(
         `https://api.spotify.com/v1/search?q=${encodeURIComponent(
           query
-        )}&type=track,album,artist&limit=5`,
+        )}&type=track,album,artist&limit=10`,
         {
           headers: { Authorization: `Bearer ${accessToken}` },
         }
@@ -97,55 +91,47 @@ const Search: React.FC = () => {
     }
   };
 
-  // 재생/일시정지
-  const togglePlay = async (uri: string) => {
+  // 재생/일시정지(트랙 클릭 시)
+  const togglePlay = async (track: SpotifyTrack) => {
     const accessToken = localStorage.getItem("spotify_access_token");
     if (!accessToken) {
       alert("Spotify 로그인 필요");
       return;
     }
-
     try {
-      if (playingTrack === uri && isPlaying) {
-        await fetch("https://api.spotify.com/v1/me/player/pause", {
-          method: "PUT",
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        setIsPlaying(false);
-        return;
-      }
-
-      const deviceResponse = await fetch(
-        "https://api.spotify.com/v1/me/player/devices",
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }
-      );
-      const deviceData = await deviceResponse.json();
-
-      if (!deviceData.devices.length) {
-        alert(
-          "Spotify에서 재생할 수 있는 기기가 없습니다. Spotify 앱을 열고 한 번 재생한 후 다시 시도해주세요."
+      // 만약 같은 트랙이면, 재생/일시정지 토글
+      if (currentTrack?.uri === track.uri) {
+        await togglePlayPause(); // context에 있는 togglePlayPause 호출
+      } else {
+        // 다른 트랙이면 새 트랙으로 재생 시작
+        const deviceResponse = await fetch(
+          "https://api.spotify.com/v1/me/player/devices",
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          }
         );
-        return;
-      }
-
-      const deviceId = deviceData.devices[0].id;
-
-      await fetch(
-        `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ uris: [uri] }),
+        const deviceData = await deviceResponse.json();
+        if (!deviceData.devices.length) {
+          alert(
+            "Spotify에서 재생할 수 있는 기기가 없습니다. Spotify 앱을 열고 한 번 재생한 후 다시 시도해주세요."
+          );
+          return;
         }
-      );
-
-      setPlayingTrack(uri);
-      setIsPlaying(true);
+        const deviceId = deviceData.devices[0].id;
+        await fetch(
+          `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
+          {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ uris: [track.uri] }),
+          }
+        );
+        setCurrentTrack(track);
+        setIsPlaying(true);
+      }
     } catch (error) {
       console.error("Spotify 재생 오류:", error);
     }
@@ -168,10 +154,9 @@ const Search: React.FC = () => {
             onClick={handleSearch}
             className="absolute right-3 text-amber-400"
           >
-            {" "}
-            <SearchIcon size={24} />{" "}
-          </button>{" "}
-        </div>{" "}
+            <SearchIcon size={24} />
+          </button>
+        </div>
       </div>
 
       {/* 검색 결과 */}
@@ -216,10 +201,14 @@ const Search: React.FC = () => {
           <div>
             <h2 className="text-2xl font-semibold mb-3 kor">곡</h2>
             <div className="space-y-4">
-              {results.tracks.map((track) => (
+              {results.tracks.map((track: SpotifyTrack) => (
                 <div
                   key={track.id}
                   className="flex items-center bg-black/20 p-3 rounded-lg"
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("trackData", JSON.stringify(track));
+                  }}
                 >
                   <Image
                     src={track.album.images[0]?.url}
@@ -239,10 +228,10 @@ const Search: React.FC = () => {
                     </p>
                   </div>
                   <button
-                    onClick={() => togglePlay(track.uri)}
+                    onClick={() => togglePlay(track)}
                     className="text-amber-400"
                   >
-                    {playingTrack === track.uri && isPlaying ? (
+                    {currentTrack?.uri === track.uri && isPlaying ? (
                       <Pause size={24} />
                     ) : (
                       <Play size={24} />
@@ -259,7 +248,7 @@ const Search: React.FC = () => {
           <div>
             <h2 className="text-2xl font-semibold mb-3 kor">앨범</h2>
             <div className="flex overflow-x-auto space-x-4 scrollbar-hidden">
-              {results.albums.map((album) => (
+              {results.albums.map((album: SpotifyAlbum) => (
                 <div key={album.id} className="flex-none w-40">
                   <Image
                     src={album.images[0]?.url}
