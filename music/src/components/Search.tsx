@@ -43,14 +43,7 @@ const Search = () => {
     artists: [],
   });
 
-  const {
-    currentTrack,
-    setCurrentTrack,
-    isPlaying,
-    setIsPlaying,
-    togglePlayPause,
-  } = usePlayer();
-  usePlayer();
+  const { currentTrack, isPlaying, togglePlayPause, playTrack } = usePlayer();
 
   // Spotify API 검색
   const handleSearch = async () => {
@@ -91,49 +84,12 @@ const Search = () => {
     }
   };
 
-  // 재생/일시정지(트랙 클릭 시)
+  // 트랙 재생/일시정지: 현재 재생 중이면 토글, 아니면 새로 playTrack 호출
   const togglePlay = async (track: SpotifyTrack) => {
-    const accessToken = localStorage.getItem("spotify_access_token");
-    if (!accessToken) {
-      alert("Spotify 로그인 필요");
-      return;
-    }
-    try {
-      // 만약 같은 트랙이면, 재생/일시정지 토글
-      if (currentTrack?.uri === track.uri) {
-        await togglePlayPause(); // context에 있는 togglePlayPause 호출
-      } else {
-        // 다른 트랙이면 새 트랙으로 재생 시작
-        const deviceResponse = await fetch(
-          "https://api.spotify.com/v1/me/player/devices",
-          {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          }
-        );
-        const deviceData = await deviceResponse.json();
-        if (!deviceData.devices.length) {
-          alert(
-            "Spotify에서 재생할 수 있는 기기가 없습니다. Spotify 앱을 열고 한 번 재생한 후 다시 시도해주세요."
-          );
-          return;
-        }
-        const deviceId = deviceData.devices[0].id;
-        await fetch(
-          `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
-          {
-            method: "PUT",
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ uris: [track.uri] }),
-          }
-        );
-        setCurrentTrack(track);
-        setIsPlaying(true);
-      }
-    } catch (error) {
-      console.error("Spotify 재생 오류:", error);
+    if (currentTrack?.uri === track.uri) {
+      await togglePlayPause();
+    } else {
+      await playTrack(track);
     }
   };
 
