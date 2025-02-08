@@ -67,7 +67,7 @@ const Library: React.FC = () => {
           >
             <Image
               src={playlist.thumbnail}
-              alt={playlist.name}
+              alt={playlist.name || "Playlist Thumbnail"}
               width={100}
               height={100}
               className="rounded-lg w-24 h-24 object-cover"

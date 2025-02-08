@@ -322,7 +322,7 @@ const Player = () => {
       <div className="flex flex-col items-center mt-4">
         <VinylDisc
           isPlaying={isPlaying}
-          imageUrl={currentTrack?.album.images[0]?.url}
+          imageUrl={currentTrack?.album.images?.[0]?.url}
         />
         {currentTrack && (
           <div className="mt-2 text-center">
@@ -347,8 +347,8 @@ const Player = () => {
               className="flex items-center bg-black/50 p-2 rounded-md"
             >
               <Image
-                src={track.album.images[0]?.url || "/images/default.png"}
-                alt={track.name}
+                src={track.album?.images?.[0]?.url || "/images/logo.svg"}
+                alt={track.name || "Track Album Image"}
                 width={40}
                 height={40}
                 className="rounded-md"

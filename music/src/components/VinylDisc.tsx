@@ -6,9 +6,10 @@ import Image from "next/image";
 interface VinylDiscProps {
   isPlaying: boolean;
   imageUrl?: string;
+  alt?: string;
 }
 
-const VinylDisc: React.FC<VinylDiscProps> = ({ isPlaying, imageUrl }) => {
+const VinylDisc: React.FC<VinylDiscProps> = ({ isPlaying, imageUrl, alt }) => {
   const vinylRef = useRef<HTMLDivElement>(null);
 
   return (
@@ -27,7 +28,7 @@ const VinylDisc: React.FC<VinylDiscProps> = ({ isPlaying, imageUrl }) => {
             {imageUrl ? (
               <Image
                 src={imageUrl}
-                alt="Album Cover"
+                alt={alt || "Album Cover"}
                 fill
                 sizes="(max-width: 768px) 100vw, 50vw"
                 className="object-cover rounded-full"

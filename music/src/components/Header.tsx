@@ -75,7 +75,7 @@ const Header = () => {
             {user?.avatar_url ? (
               <Image
                 src={user.avatar_url}
-                alt="User Avatar"
+                alt={user.avatar_url ? "User Avatar" : "Default User Avatar"}
                 width={32}
                 height={32}
                 className="rounded-full"

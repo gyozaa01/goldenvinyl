@@ -126,7 +126,7 @@ const Search = () => {
                 src={
                   results.topResult.images?.[0]?.url || "/images/default.png"
                 }
-                alt={results.topResult.name}
+                alt={results.topResult?.name ?? "검색 결과 이미지"}
                 width={80}
                 height={80}
                 className={`object-cover aspect-square ${
@@ -167,8 +167,8 @@ const Search = () => {
                   }}
                 >
                   <Image
-                    src={track.album.images[0]?.url}
-                    alt={track.name}
+                    src={track.album.images?.[0]?.url || "/images/logo.svg"}
+                    alt={track.name ?? "트랙 앨범 이미지"}
                     width={50}
                     height={50}
                     className="w-12 h-12 rounded-lg object-cover"
@@ -207,8 +207,8 @@ const Search = () => {
               {results.albums.map((album: SpotifyAlbum) => (
                 <div key={album.id} className="flex-none w-40">
                   <Image
-                    src={album.images[0]?.url}
-                    alt={album.name}
+                    src={album.images?.[0]?.url || "/images/logo.svg"}
+                    alt={album.name ?? "앨범 이미지"}
                     width={160}
                     height={160}
                     className="w-40 h-40 rounded-lg object-cover"
