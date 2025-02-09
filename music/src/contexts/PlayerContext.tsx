@@ -25,6 +25,15 @@ export interface SpotifyTrack {
   progress_ms?: number; // 현재 재생 진행 시간
 }
 
+// Spotify 앨범 상세 정보에서 트랙 데이터 타입
+interface SpotifyAlbumTrack {
+  id: string;
+  name: string;
+  uri: string;
+  duration_ms: number;
+  artists: { name: string }[];
+}
+
 // Supabase play_history 테이블의 행 타입 정의
 interface PlayHistoryRow {
   user_id: string;
@@ -45,6 +54,7 @@ interface PlayerContextValue {
   togglePlayPause: () => Promise<void>;
   playedTracks: SpotifyTrack[];
   playTrack: (track: SpotifyTrack, isNavigation?: boolean) => Promise<void>;
+  playAlbum: (albumId: string) => Promise<void>;
   nextTrack: () => Promise<void>;
   prevTrack: () => Promise<void>;
   shuffleTrack: () => Promise<void>;
@@ -117,7 +127,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
             uri: data.item.uri,
             duration_ms: data.item.duration_ms,
             type: "track",
-            artists: data.item.artists.map((a: { name: string }) => ({
+            artists: (data.item.artists as { name: string }[]).map((a) => ({
               name: a.name,
             })),
             progress_ms: data.progress_ms,
@@ -251,6 +261,107 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // 앨범 전곡 재생 함수
+  const playAlbum = async (albumId: string) => {
+    const accessToken = localStorage.getItem("spotify_access_token");
+    if (!accessToken) {
+      alert("Spotify 로그인 필요");
+      return;
+    }
+    try {
+      // 1. 기기 정보 가져오기
+      const deviceResponse = await fetch(
+        "https://api.spotify.com/v1/me/player/devices",
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+      );
+      const deviceData = await deviceResponse.json();
+      if (!deviceData.devices || !deviceData.devices.length) {
+        alert(
+          "Spotify에서 재생할 수 있는 기기가 없습니다. Spotify 앱을 열고 한 번 재생한 후 다시 시도해주세요."
+        );
+        return;
+      }
+      const deviceId = deviceData.devices[0].id;
+
+      // 2. 앨범 전체 재생 요청
+      await fetch(
+        `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            context_uri: `spotify:album:${albumId}`,
+            offset: { position: 0 },
+          }),
+        }
+      );
+
+      // 3. 재생 후 1500ms 딜레이 후, 앨범 상세 정보 불러오기
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const albumDetailRes = await fetch(
+        `https://api.spotify.com/v1/albums/${albumId}`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+      );
+      if (!albumDetailRes.ok) {
+        console.error("앨범 상세 정보 불러오기 실패");
+        return;
+      }
+      const albumDetail = await albumDetailRes.json();
+
+      // 4. 앨범 트랙 목록 생성
+      const albumTracks: SpotifyTrack[] = (
+        albumDetail.tracks.items as SpotifyAlbumTrack[]
+      ).map((item: SpotifyAlbumTrack) => ({
+        id: item.id,
+        name: item.name,
+        album: { images: albumDetail.images || [] },
+        uri: item.uri,
+        duration_ms: item.duration_ms,
+        type: "track",
+        artists: item.artists.map((a) => ({ name: a.name })),
+      }));
+
+      if (albumTracks.length > 0) {
+        // 기존의 playedTracks에 앨범 트랙들을 덧붙임
+        setPlayedTracks((prev) => [...albumTracks, ...prev]);
+        setCurrentTrack(albumTracks[0]);
+        setIsPlaying(true);
+
+        // 앨범 트랙들을 Supabase에 업서트(한꺼번에 저장)
+        const userId = localStorage.getItem("supabase_user_id");
+        if (userId) {
+          const records = albumTracks.map((track) => ({
+            user_id: userId,
+            track_id: track.id,
+            track_name: track.name,
+            album_image: track.album.images?.[0]?.url,
+            artist: track.artists[0].name,
+            track_uri: track.uri,
+            duration_ms: track.duration_ms,
+            played_at: new Date().toISOString(),
+          }));
+          supabase
+            .from("play_history")
+            .upsert(records, { onConflict: "user_id, track_id" })
+            .then(({ error }) => {
+              if (error) {
+                console.error("앨범 전체 업서트 오류:", error);
+              }
+            });
+        }
+      }
+    } catch (error) {
+      console.error("앨범 재생 오류:", error);
+    }
+  };
+
   const nextTrack = async () => {
     if (!currentTrack) return;
     const index = playedTracks.findIndex((t) => t.id === currentTrack.id);
@@ -315,6 +426,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         togglePlayPause,
         playedTracks,
         playTrack,
+        playAlbum,
         nextTrack,
         prevTrack,
         shuffleTrack,

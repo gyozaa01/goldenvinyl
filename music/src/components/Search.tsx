@@ -43,7 +43,8 @@ const Search = () => {
     artists: [],
   });
 
-  const { currentTrack, isPlaying, togglePlayPause, playTrack } = usePlayer();
+  const { currentTrack, isPlaying, togglePlayPause, playTrack, playAlbum } =
+    usePlayer();
 
   // Spotify API 검색
   const handleSearch = async () => {
@@ -205,7 +206,7 @@ const Search = () => {
             <h2 className="text-2xl font-semibold mb-3 kor">앨범</h2>
             <div className="flex overflow-x-auto space-x-4 scrollbar-hidden">
               {results.albums.map((album: SpotifyAlbum) => (
-                <div key={album.id} className="flex-none w-40">
+                <div key={album.id} className="flex-none w-40 relative group">
                   <Image
                     src={album.images?.[0]?.url || "/images/logo.svg"}
                     alt={album.name ?? "앨범 이미지"}
@@ -213,6 +214,13 @@ const Search = () => {
                     height={160}
                     className="w-40 h-40 rounded-lg object-cover"
                   />
+                  {/* 재생 버튼 오버레이 */}
+                  <button
+                    onClick={() => playAlbum(album.id)}
+                    className="absolute bottom-2 right-2 p-3 bg-amber-600/90 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Play size={20} fill="white" />
+                  </button>
                   <p className="text-lg truncate w-40">{album.name}</p>
                   <p className="text-sm text-amber-300">
                     {album.artists[0].name}
