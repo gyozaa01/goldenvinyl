@@ -135,8 +135,24 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
               name: a.name,
             })),
             progress_ms: data.progress_ms,
-            liked: false, // 기본값
+            liked: false, // 기본값 -> 여기에서 Supabase 데이터로 덮어씌움
           };
+
+          // Supabase에서 기존 재생 기록의 heart 상태를 조회하여, 트랙의 liked 상태 업데이트
+          const userId = localStorage.getItem("supabase_user_id");
+          if (userId) {
+            const { data: historyData, error } = await supabase
+              .from("play_history")
+              .select("heart")
+              .match({ user_id: userId, track_id: track.id })
+              .single();
+            if (error) {
+              console.error("재생 기록에서 좋아요 상태 가져오기 오류:", error);
+            } else if (historyData && typeof historyData.heart === "boolean") {
+              track.liked = historyData.heart;
+            }
+          }
+
           setCurrentTrack(track);
           setIsPlaying(data.is_playing);
         }
