@@ -29,6 +29,7 @@ const Player = () => {
     playedTracks,
     playTrack,
     removeFromHistory,
+    toggleLike,
   } = usePlayer();
 
   // 기본 상태들
@@ -315,7 +316,17 @@ const Player = () => {
       </button>
       <div className="flex items-center justify-between px-6 pt-8">
         <h4 className="text-amber-50 kor font-medium">현재 재생 중인 음악</h4>
-        <Heart className="text-amber-500/80" />
+        <button onClick={toggleLike} className="focus:outline-none">
+          <Heart
+            size={24}
+            fill={currentTrack && currentTrack.liked ? "currentColor" : "none"}
+            className={
+              currentTrack && currentTrack.liked
+                ? "text-amber-500"
+                : "text-amber-500/80"
+            }
+          />
+        </button>
       </div>
 
       {/* Vinyl Disc 컴포넌트 */}
@@ -352,6 +363,7 @@ const Player = () => {
                 width={40}
                 height={40}
                 className="rounded-md"
+                priority
               />
               <div className="ml-2 flex-1">
                 <p className="text-sm text-amber-50 truncate max-w-[140px] sm:max-w-[160px] md:max-w-[200px] lg:max-w-[250px]">

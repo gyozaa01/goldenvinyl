@@ -23,6 +23,7 @@ export interface SpotifyTrack {
   images?: { url: string }[];
   playedAt?: number; // 재생 시각(최신 재생 시각)
   progress_ms?: number; // 현재 재생 진행 시간
+  liked?: boolean; // 좋아요 여부
 }
 
 // Spotify 앨범 상세 정보에서 트랙 데이터 타입
@@ -44,6 +45,7 @@ interface PlayHistoryRow {
   track_uri: string;
   duration_ms: number;
   played_at: string;
+  heart?: boolean;
 }
 
 interface PlayerContextValue {
@@ -60,6 +62,7 @@ interface PlayerContextValue {
   shuffleTrack: () => Promise<void>;
   repeatTrack: () => Promise<void>;
   removeFromHistory: (trackId: string) => void;
+  toggleLike: () => Promise<void>;
 }
 
 const PlayerContext = createContext<PlayerContextValue | undefined>(undefined);
@@ -97,6 +100,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                 type: "track",
                 artists: [{ name: row.artist }],
                 playedAt: new Date(row.played_at).getTime(),
+                liked: row.heart ?? false,
               })
             );
             setPlayedTracks(tracks);
@@ -131,6 +135,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
               name: a.name,
             })),
             progress_ms: data.progress_ms,
+            liked: false, // 기본값
           };
           setCurrentTrack(track);
           setIsPlaying(data.is_playing);
@@ -169,6 +174,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                 track_uri: currentTrack.uri,
                 duration_ms: currentTrack.duration_ms,
                 played_at: new Date().toISOString(),
+                heart: currentTrack.liked ?? false,
               },
             ],
             { onConflict: "user_id, track_id" }
@@ -326,6 +332,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         duration_ms: item.duration_ms,
         type: "track",
         artists: item.artists.map((a) => ({ name: a.name })),
+        liked: false, // 기본값
       }));
 
       if (albumTracks.length > 0) {
@@ -346,6 +353,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
             track_uri: track.uri,
             duration_ms: track.duration_ms,
             played_at: new Date().toISOString(),
+            heart: false, // 기본 좋아요 상태
           }));
           supabase
             .from("play_history")
@@ -416,6 +424,27 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const toggleLike = async () => {
+    if (!currentTrack) return;
+    const userId = localStorage.getItem("supabase_user_id");
+    if (!userId) return;
+    const newLiked = !currentTrack.liked;
+    const { error } = await supabase
+      .from("play_history")
+      .update({ heart: newLiked })
+      .match({ user_id: userId, track_id: currentTrack.id });
+    if (error) {
+      console.error("좋아요 토글 업데이트 오류:", error);
+    } else {
+      setCurrentTrack({ ...currentTrack, liked: newLiked });
+      setPlayedTracks((prev) =>
+        prev.map((t) =>
+          t.id === currentTrack.id ? { ...t, liked: newLiked } : t
+        )
+      );
+    }
+  };
+
   return (
     <PlayerContext.Provider
       value={{
@@ -432,6 +461,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         shuffleTrack,
         repeatTrack,
         removeFromHistory,
+        toggleLike,
       }}
     >
       {children}
