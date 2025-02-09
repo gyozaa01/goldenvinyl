@@ -8,6 +8,7 @@ import {
   useRef,
   ReactNode,
 } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 export interface SpotifyTrack {
   id: string;
@@ -21,6 +22,19 @@ export interface SpotifyTrack {
   artists: { name: string }[];
   images?: { url: string }[];
   playedAt?: number; // 재생 시각(최신 재생 시각)
+  progress_ms?: number; // 현재 재생 진행 시간
+}
+
+// Supabase play_history 테이블의 행 타입 정의
+interface PlayHistoryRow {
+  user_id: string;
+  track_id: string;
+  track_name: string;
+  album_image: string;
+  artist: string;
+  track_uri: string;
+  duration_ms: number;
+  played_at: string;
 }
 
 interface PlayerContextValue {
@@ -45,18 +59,116 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playedTracks, setPlayedTracks] = useState<SpotifyTrack[]>([]);
 
+  // 내비게이션으로 재생할 때 playedTracks 업데이트를 건너뛰기 위한 ref
   const updateHistoryRef = useRef(true);
+
+  // 앱 로드시 Supabase에서 재생 기록 불러오기
+  useEffect(() => {
+    const userId = localStorage.getItem("supabase_user_id");
+    if (userId) {
+      supabase
+        .from("play_history")
+        .select("*")
+        .eq("user_id", userId)
+        .order("played_at", { ascending: false })
+        .limit(50)
+        .then(({ data, error }) => {
+          if (error) {
+            console.error("재생 기록 불러오기 오류:", error);
+          } else if (data) {
+            // 반환된 데이터를 PlayHistoryRow[]로 캐스팅하고, SpotifyTrack 형식으로 매핑
+            const tracks: SpotifyTrack[] = (data as PlayHistoryRow[]).map(
+              (row) => ({
+                id: row.track_id,
+                name: row.track_name,
+                album: { images: [{ url: row.album_image }] },
+                uri: row.track_uri,
+                duration_ms: row.duration_ms,
+                type: "track",
+                artists: [{ name: row.artist }],
+                playedAt: new Date(row.played_at).getTime(),
+              })
+            );
+            setPlayedTracks(tracks);
+          }
+        });
+    }
+  }, []);
+
+  // 앱 로드시 Spotify의 현재 재생 중인 곡 정보를 불러와서 상태 복원
+  useEffect(() => {
+    const fetchCurrentPlayback = async () => {
+      const accessToken = localStorage.getItem("spotify_access_token");
+      if (!accessToken) return;
+      try {
+        const res = await fetch(
+          "https://api.spotify.com/v1/me/player/currently-playing",
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          }
+        );
+        if (res.status === 204) return; // 재생중인 곡이 없으면
+        const data = await res.json();
+        if (data && data.item) {
+          const track: SpotifyTrack = {
+            id: data.item.id,
+            name: data.item.name,
+            album: { images: data.item.album.images },
+            uri: data.item.uri,
+            duration_ms: data.item.duration_ms,
+            type: "track",
+            artists: data.item.artists.map((a: { name: string }) => ({
+              name: a.name,
+            })),
+            progress_ms: data.progress_ms,
+          };
+          setCurrentTrack(track);
+          setIsPlaying(data.is_playing);
+        }
+      } catch (error) {
+        console.error("현재 재생 정보 불러오기 오류:", error);
+      }
+    };
+    fetchCurrentPlayback();
+  }, []);
 
   useEffect(() => {
     if (currentTrack && updateHistoryRef.current) {
+      // 로컬 플레이 히스토리 업데이트(동일한 곡은 제거 후 최신 항목으로 추가)
       setPlayedTracks((prev) => {
-        // 동일한 곡은 제거한 후 새 항목으로 추가
         const filtered = prev.filter((t) => t.id !== currentTrack.id);
         return [{ ...currentTrack, playedAt: Date.now() }, ...filtered].slice(
           0,
           50
         );
       });
+
+      // Supabase에 재생 기록 upsert(동일한 곡이면 played_at만 업데이트)
+      const userId = localStorage.getItem("supabase_user_id");
+      if (userId) {
+        supabase
+          .from("play_history")
+          .upsert(
+            [
+              {
+                user_id: userId,
+                track_id: currentTrack.id,
+                track_name: currentTrack.name,
+                album_image: currentTrack.album.images?.[0]?.url,
+                artist: currentTrack.artists[0].name,
+                track_uri: currentTrack.uri,
+                duration_ms: currentTrack.duration_ms,
+                played_at: new Date().toISOString(),
+              },
+            ],
+            { onConflict: "user_id, track_id" }
+          )
+          .then(({ error }) => {
+            if (error) {
+              console.error("플레이 히스토리 upsert 오류:", error);
+            }
+          });
+      }
     }
     updateHistoryRef.current = true;
   }, [currentTrack]);
@@ -131,8 +243,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
           body: JSON.stringify({ uris: [track.uri] }),
         }
       );
-      // setCurrentTrack 호출 시 useEffect가 실행되는데,
-      // updateHistoryRef.current에 따라 재생 이력 업데이트 여부가 결정
+      // 트랙 재생 시 currentTrack 업데이트 -> 이때 위의 useEffect가 실행됨
       setCurrentTrack(track);
       setIsPlaying(true);
     } catch (error) {
@@ -176,8 +287,22 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // 재생 히스토리에서 해당 트랙 삭제
   const removeFromHistory = (trackId: string) => {
     setPlayedTracks((prev) => prev.filter((track) => track.id !== trackId));
+
+    const userId = localStorage.getItem("supabase_user_id");
+    if (userId) {
+      supabase
+        .from("play_history")
+        .delete()
+        .match({ user_id: userId, track_id: trackId })
+        .then(({ error }) => {
+          if (error) {
+            console.error("플레이 히스토리 삭제 오류:", error);
+          }
+        });
+    }
   };
 
   return (

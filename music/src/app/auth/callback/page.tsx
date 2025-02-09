@@ -69,6 +69,9 @@ const Callback = () => {
             console.error("Supabase 저장 오류:", error.message);
           } else {
             console.log("사용자 정보 저장 성공!", userData);
+            if (userData && userData.length > 0) {
+              localStorage.setItem("supabase_user_id", userData[0].id);
+            }
           }
 
           // 홈 화면으로 이동

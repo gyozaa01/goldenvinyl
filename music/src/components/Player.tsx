@@ -48,8 +48,8 @@ const Player = () => {
   useEffect(() => {
     if (currentTrack) {
       setDuration(currentTrack.duration_ms);
-      setProgress(0);
-      // currentTrack이 바뀌면 새로운 트랙이 시작되므로 타이머 재시작
+      // 만약 currentTrack.progress_ms가 있다면 그 값을, 없으면 0으로 초기화
+      setProgress(currentTrack.progress_ms || 0);
       setTimerKey((prev) => prev + 1);
     }
   }, [currentTrack]);

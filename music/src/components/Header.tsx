@@ -52,6 +52,7 @@ const Header = () => {
     setMenuOpen(false);
     localStorage.removeItem("spotify_access_token");
     localStorage.removeItem("spotify_refresh_token"); // 리프레시 토큰도 삭제
+    localStorage.removeItem("supabase_user_id");
 
     setAccessToken(null);
     setUser(null);
