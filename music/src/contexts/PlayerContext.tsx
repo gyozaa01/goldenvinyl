@@ -57,6 +57,7 @@ interface PlayerContextValue {
   playedTracks: SpotifyTrack[];
   playTrack: (track: SpotifyTrack, isNavigation?: boolean) => Promise<void>;
   playAlbum: (albumId: string) => Promise<void>;
+  playPlaylist: (tracks: SpotifyTrack[]) => Promise<void>;
   nextTrack: () => Promise<void>;
   prevTrack: () => Promise<void>;
   shuffleTrack: () => Promise<void>;
@@ -84,7 +85,6 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         .select("*")
         .eq("user_id", userId)
         .order("played_at", { ascending: false })
-        .limit(50)
         .then(({ data, error }) => {
           if (error) {
             console.error("재생 기록 불러오기 오류:", error);
@@ -168,10 +168,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       // 로컬 플레이 히스토리 업데이트(동일한 곡은 제거 후 최신 항목으로 추가)
       setPlayedTracks((prev) => {
         const filtered = prev.filter((t) => t.id !== currentTrack.id);
-        return [{ ...currentTrack, playedAt: Date.now() }, ...filtered].slice(
-          0,
-          50
-        );
+        return [{ ...currentTrack, playedAt: Date.now() }, ...filtered];
       });
 
       // Supabase에 재생 기록 upsert(동일한 곡이면 played_at만 업데이트)
@@ -369,7 +366,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
             track_uri: track.uri,
             duration_ms: track.duration_ms,
             played_at: new Date().toISOString(),
-            heart: false, // 기본 좋아요 상태
+            heart: false,
           }));
           supabase
             .from("play_history")
@@ -383,6 +380,98 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (error) {
       console.error("앨범 재생 오류:", error);
+    }
+  };
+
+  // 전곡 재생 함수
+  const playPlaylist = async (tracks: SpotifyTrack[]) => {
+    if (tracks.length === 0) return;
+    const accessToken = localStorage.getItem("spotify_access_token");
+    if (!accessToken) {
+      alert("Spotify 로그인 필요");
+      return;
+    }
+
+    const deviceResponse = await fetch(
+      "https://api.spotify.com/v1/me/player/devices",
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+    const deviceData = await deviceResponse.json();
+    if (!deviceData.devices || !deviceData.devices.length) {
+      alert(
+        "Spotify에서 재생할 수 있는 기기가 없습니다. Spotify 앱을 열고 재생한 후 다시 시도해주세요."
+      );
+      return;
+    }
+    const deviceId = deviceData.devices[0].id;
+
+    // Spotify API 호출: 전체 트랙 목록 재생 요청 (새 목록으로 교체)
+    const playResponse = await fetch(
+      `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          uris: tracks.map((t) => t.uri),
+        }),
+      }
+    );
+    if (!playResponse.ok) {
+      console.error("Spotify 전곡 재생 요청 실패", playResponse.status);
+      return;
+    }
+
+    // useEffect의 playedTracks 업데이트를 건너뛰기 위해 설정
+    updateHistoryRef.current = false;
+
+    // 기존 playedTracks에 있는 동일한 트랙의 liked 값을 보존하여 새 재생 목록으로 대체
+    setPlayedTracks((prev) => {
+      return tracks.map((track) => {
+        const existingTrack = prev.find((t) => t.id === track.id);
+        return {
+          ...track,
+          playedAt: Date.now(),
+          // 이미 존재하면 기존 liked 값을, 없으면 track.liked (없을 경우 false 처리)
+          liked: existingTrack ? existingTrack.liked : track.liked ?? false,
+        };
+      });
+    });
+
+    // 현재 재생곡 및 재생 상태 업데이트
+    setCurrentTrack(tracks[0]);
+    setIsPlaying(true);
+
+    // Supabase에도 전곡 업서트(liked 값 보존)
+    const userId = localStorage.getItem("supabase_user_id");
+    if (userId) {
+      const records = tracks.map((track) => {
+        // 기존 playedTracks에서 같은 트랙의 liked 값이 있다면 사용, 아니면 track.liked를 기본값 false로 처리
+        const existingTrack = playedTracks.find((t) => t.id === track.id);
+        return {
+          user_id: userId,
+          track_id: track.id,
+          track_name: track.name,
+          album_image: track.album.images?.[0]?.url,
+          artist: track.artists[0].name,
+          track_uri: track.uri,
+          duration_ms: track.duration_ms,
+          played_at: new Date().toISOString(),
+          heart: existingTrack ? existingTrack.liked : track.liked ?? false,
+        };
+      });
+      supabase
+        .from("play_history")
+        .upsert(records, { onConflict: "user_id, track_id" })
+        .then(({ error }) => {
+          if (error) {
+            console.error("전곡 재생 업서트 오류:", error);
+          }
+        });
     }
   };
 
@@ -472,6 +561,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         playedTracks,
         playTrack,
         playAlbum,
+        playPlaylist,
         nextTrack,
         prevTrack,
         shuffleTrack,

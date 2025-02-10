@@ -1,7 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { Search as SearchIcon, Play, Pause } from "lucide-react";
+import { useState, useEffect } from "react";
+import {
+  Search as SearchIcon,
+  Play,
+  Pause,
+  MoreHorizontal,
+} from "lucide-react";
 import Image from "next/image";
 import { usePlayer, SpotifyTrack } from "@/contexts/PlayerContext";
 
@@ -35,6 +40,17 @@ type SearchResults = {
   artists: SpotifyArtist[];
 };
 
+// Spotify 플레이리스트 타입(모달 메뉴용)
+interface SpotifyPlaylist {
+  id: string;
+  name: string;
+}
+
+// Spotify 플레이리스트 API 응답 타입 정의
+interface SpotifyPlaylistsResponse {
+  items: SpotifyPlaylist[];
+}
+
 const Search = () => {
   const [query, setQuery] = useState<string>("");
   const [results, setResults] = useState<SearchResults>({
@@ -44,19 +60,27 @@ const Search = () => {
     artists: [],
   });
 
+  // 모달 및 플레이리스트 관련 상태
+  const [playlists, setPlaylists] = useState<SpotifyPlaylist[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [selectedTrack, setSelectedTrack] = useState<SpotifyTrack | null>(null);
+
+  // 컴포넌트 마운트 시 한 번만 accessToken을 읽어옴.
+  const accessToken =
+    typeof window !== "undefined"
+      ? localStorage.getItem("spotify_access_token")
+      : null;
+
   const { currentTrack, isPlaying, togglePlayPause, playTrack, playAlbum } =
     usePlayer();
 
   // Spotify API 검색
   const handleSearch = async () => {
-    const accessToken = localStorage.getItem("spotify_access_token");
     if (!accessToken) {
       alert("Spotify 로그인 필요");
       return;
     }
-
     if (!query.trim()) return;
-
     try {
       const response = await fetch(
         `https://api.spotify.com/v1/search?q=${encodeURIComponent(
@@ -66,15 +90,11 @@ const Search = () => {
           headers: { Authorization: `Bearer ${accessToken}` },
         }
       );
-
       const data = await response.json();
-
       const topArtist = data.artists?.items?.[0] || null;
       const topAlbum = data.albums?.items?.[0] || null;
       const topTrack = data.tracks?.items?.[0] || null;
-
       const topResult = topArtist || topAlbum || topTrack;
-
       setResults({
         topResult,
         tracks: data.tracks?.items || [],
@@ -92,6 +112,93 @@ const Search = () => {
       await togglePlayPause();
     } else {
       await playTrack(track);
+    }
+  };
+
+  // 모달 열기 함수: 해당 트랙을 선택하고 모달을 오픈
+  const openAddToPlaylistModal = (track: SpotifyTrack) => {
+    setSelectedTrack(track);
+    setIsModalOpen(true);
+  };
+
+  // Spotify 플레이리스트 불러오기(모달 메뉴용)
+  useEffect(() => {
+    if (!accessToken) return;
+    const fetchPlaylists = async () => {
+      try {
+        const res = await fetch("https://api.spotify.com/v1/me/playlists", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (res.ok) {
+          const data = (await res.json()) as SpotifyPlaylistsResponse;
+          const fetchedPlaylists = data.items.map((item) => ({
+            id: item.id,
+            name: item.name,
+          }));
+          setPlaylists(fetchedPlaylists);
+        } else {
+          console.error("플레이리스트 불러오기 실패", res.status);
+        }
+      } catch (error) {
+        console.error("플레이리스트 불러오기 오류", error);
+      }
+    };
+
+    fetchPlaylists();
+  }, [accessToken]); // accessToken은 마운트 시 고정 값으로 가정
+
+  // 선택한 플레이리스트에 해당 트랙 추가(중복 추가 방지)
+  const addTrackToPlaylist = async (
+    track: SpotifyTrack,
+    playlistId: string
+  ) => {
+    if (!accessToken) {
+      alert("Spotify 로그인 필요");
+      return;
+    }
+    try {
+      // 해당 플레이리스트의 트랙 목록 불러오기
+      const resGet = await fetch(
+        `https://api.spotify.com/v1/playlists/${playlistId}/tracks?fields=items(track(uri))`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+      );
+      if (resGet.ok) {
+        const data = await resGet.json();
+        const uris = data.items.map(
+          (item: { track: { uri: string } }) => item.track.uri
+        );
+        if (uris.includes(track.uri)) {
+          alert("이 곡은 이미 추가되어 있습니다.");
+          return;
+        }
+      } else {
+        console.error("플레이리스트 트랙 불러오기 실패", resGet.status);
+      }
+      // 트랙 추가 요청
+      const res = await fetch(
+        `https://api.spotify.com/v1/playlists/${playlistId}/tracks`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            uris: [track.uri],
+          }),
+        }
+      );
+      if (res.ok) {
+        alert(`"${track.name}"이(가) 플레이리스트에 추가되었습니다.`);
+        setIsModalOpen(false);
+        setSelectedTrack(null);
+      } else {
+        console.error("플레이리스트에 트랙 추가 실패", res.status);
+      }
+    } catch (error) {
+      console.error("플레이리스트에 트랙 추가 오류", error);
     }
   };
 
@@ -178,7 +285,7 @@ const Search = () => {
                     priority
                   />
                   <div className="ml-4 flex-1">
-                    <h3 className="text-lg font-medium truncate w-full max-w-[150px] sm:max-w-[180px] md:max-w-[220px] lg:max-w-[280px] xl:max-w-[320px] overflow-hidden whitespace-nowrap">
+                    <h3 className="text-lg font-medium truncate w-full max-w-[120px] sm:max-w-[180px] md:max-w-[220px] lg:max-w-[280px] xl:max-w-[320px] overflow-hidden whitespace-nowrap">
                       {track.name}
                     </h3>
 
@@ -187,16 +294,28 @@ const Search = () => {
                       {formatDuration(track.duration_ms)}
                     </p>
                   </div>
-                  <button
-                    onClick={() => togglePlay(track)}
-                    className="text-amber-400"
-                  >
-                    {currentTrack?.uri === track.uri && isPlaying ? (
-                      <Pause size={24} />
-                    ) : (
-                      <Play size={24} />
-                    )}
-                  </button>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => togglePlay(track)}
+                      className="text-amber-400"
+                    >
+                      {currentTrack?.uri === track.uri && isPlaying ? (
+                        <Pause size={24} />
+                      ) : (
+                        <Play size={24} />
+                      )}
+                    </button>
+                    {/* 추가 버튼: 모달을 통해 플레이리스트에 추가 */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openAddToPlaylistModal(track);
+                      }}
+                      className="text-white bg-black/50 p-1 rounded-full hover:bg-black/60 transition-colors"
+                    >
+                      <MoreHorizontal size={16} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -242,6 +361,47 @@ const Search = () => {
           </div>
         )}
       </div>
+
+      {/* 모달: 플레이리스트 선택 */}
+      {isModalOpen && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-50">
+          <div className="bg-gradient-to-br from-amber-800 to-gray-900 border border-amber-500 rounded-xl shadow-2xl w-80 p-8 transform transition-all duration-300">
+            <h3 className="kor text-2xl font-bold text-amber-100 mb-6">
+              플레이리스트 선택
+            </h3>
+            <ul className="space-y-4 max-h-[300px] overflow-y-auto">
+              {playlists.length > 0 ? (
+                playlists.map((playlist) => (
+                  <li
+                    key={playlist.id}
+                    onClick={() => {
+                      if (selectedTrack) {
+                        addTrackToPlaylist(selectedTrack, playlist.id);
+                      }
+                    }}
+                    className="cursor-pointer px-4 py-2 rounded hover:bg-amber-700 transition-colors duration-200 text-amber-100"
+                  >
+                    {playlist.name}
+                  </li>
+                ))
+              ) : (
+                <li className="px-4 py-2 text-sm text-gray-400">
+                  플레이리스트가 없습니다.
+                </li>
+              )}
+            </ul>
+            <button
+              onClick={() => {
+                setIsModalOpen(false);
+                setSelectedTrack(null);
+              }}
+              className="mt-8 w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-semibold transition-colors duration-200"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

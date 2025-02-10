@@ -302,7 +302,7 @@ const Player = () => {
         isExpanded
           ? "top-0 bottom-0 bg-black/95 z-50"
           : "bottom-0 h-48 bg-black/80"
-      }`}
+      } flex flex-col`}
     >
       <button
         onClick={() => setIsExpanded(!isExpanded)}
@@ -314,19 +314,25 @@ const Player = () => {
           }`}
         />
       </button>
-      <div className="flex items-center justify-between px-6 pt-8">
-        <h4 className="text-amber-50 kor font-medium">현재 재생 중인 음악</h4>
-        <button onClick={toggleLike} className="focus:outline-none">
-          <Heart
-            size={24}
-            fill={currentTrack && currentTrack.liked ? "currentColor" : "none"}
-            className={
-              currentTrack && currentTrack.liked
-                ? "text-amber-500"
-                : "text-amber-500/80"
-            }
-          />
-        </button>
+
+      {/* 헤더 영역 */}
+      <div className="px-6 pt-8">
+        <div className="flex items-center justify-between">
+          <h4 className="text-amber-50 kor font-medium">현재 재생 중인 음악</h4>
+          <button onClick={toggleLike} className="focus:outline-none">
+            <Heart
+              size={24}
+              fill={
+                currentTrack && currentTrack.liked ? "currentColor" : "none"
+              }
+              className={
+                currentTrack && currentTrack.liked
+                  ? "text-amber-500"
+                  : "text-amber-500/80"
+              }
+            />
+          </button>
+        </div>
       </div>
 
       {/* Vinyl Disc 컴포넌트 */}
@@ -347,8 +353,13 @@ const Player = () => {
         )}
       </div>
 
-      {/* 재생 히스토리 리스트(최신 항목은 아래에 표시) */}
-      <div className="mt-4 px-6 overflow-y-auto space-y-2 max-h-40 sm:max-h-48 md:max-h-60 lg:max-h-80 xl:max-h-96 scrollbar-hidden">
+      {/* 총 곡 수 영역 */}
+      <div className="px-6 py-2 text-sm text-amber-200">
+        총 {playedTracks.length} 곡
+      </div>
+
+      {/* 재생 히스토리 영역 – 바이닐, 헤더, 총 곡 수, 컨트롤 영역을 제외한 남은 영역을 채움 */}
+      <div className="flex-1 overflow-y-auto px-6 space-y-2 scrollbar-hidden">
         {playedTracks
           .slice()
           .reverse()
@@ -401,7 +412,7 @@ const Player = () => {
       </div>
 
       {/* 컨트롤 영역 */}
-      <div className="absolute bottom-0 inset-x-0 p-4 flex flex-col gap-4">
+      <div className="p-4 flex flex-col gap-4">
         {/* 상단 컨트롤 행: 이전/다음, 셔플/반복, 진행바 */}
         <div className="flex items-center justify-between">
           <button onClick={handlePrevTrack} className="focus:outline-none">

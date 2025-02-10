@@ -8,9 +8,14 @@ import { supabase } from "@/lib/supabaseClient";
 const CLIENT_ID = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID!;
 const REDIRECT_URI = process.env.NEXT_PUBLIC_SPOTIFY_REDIRECT_URI!;
 const AUTH_URL = "https://accounts.spotify.com/authorize";
-const SCOPES = ["user-read-email", "user-read-private", "user-top-read"].join(
-  "%20"
-);
+const SCOPES = [
+  "user-read-email",
+  "user-read-private",
+  "user-top-read",
+  "playlist-modify-public",
+  "playlist-modify-private",
+  "playlist-read-private",
+].join("%20");
 
 const Header = () => {
   const [accessToken, setAccessToken] = useState<string | null>(null);
