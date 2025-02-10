@@ -8,7 +8,9 @@ import { supabase } from "@/lib/supabaseClient";
 const CLIENT_ID = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID!;
 const REDIRECT_URI = process.env.NEXT_PUBLIC_SPOTIFY_REDIRECT_URI!;
 const AUTH_URL = "https://accounts.spotify.com/authorize";
-const SCOPES = ["user-read-email", "user-read-private"].join("%20");
+const SCOPES = ["user-read-email", "user-read-private", "user-top-read"].join(
+  "%20"
+);
 
 const Header = () => {
   const [accessToken, setAccessToken] = useState<string | null>(null);
@@ -63,7 +65,13 @@ const Header = () => {
   return (
     <header className="relative flex items-center justify-between px-6 py-4 z-40">
       <div className="flex items-center gap-2">
-        <Image src="/images/logo.svg" alt="Logo" width={40} height={40} />
+        <Image
+          src="/images/logo.svg"
+          alt="Logo"
+          width={40}
+          height={40}
+          priority
+        />
         <h1 className="text-2xl font-bold eng">Golden Vinyl</h1>
       </div>
 
@@ -80,6 +88,7 @@ const Header = () => {
                 width={32}
                 height={32}
                 className="rounded-full"
+                priority
               />
             ) : (
               <User size={24} className="text-amber-200/80" />

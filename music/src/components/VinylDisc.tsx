@@ -32,6 +32,7 @@ const VinylDisc: React.FC<VinylDiscProps> = ({ isPlaying, imageUrl, alt }) => {
                 fill
                 sizes="(max-width: 768px) 100vw, 50vw"
                 className="object-cover rounded-full"
+                priority
               />
             ) : (
               <div className="w-4 h-4 rounded-full bg-stone-900" />
